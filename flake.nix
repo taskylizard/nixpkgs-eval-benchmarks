@@ -87,17 +87,54 @@
     apps = forAllSystems (pkgs: {
       build-all = {
         type = "app";
-        program = "${pkgs.writeShellScript "build-all" ''
-          set -euo pipefail
+        program = let
+          script = pkgs.writeShellApplication {
+            name = "build-all";
+            runtimeInputs = [
+              pkgs.jq
+              pkgs.systemd
+              pkgs.gawk
+            ];
+            text = ''
+              set -euo pipefail
 
-          packages=(${lib.concatStringsSep " " (builtins.attrNames self.packages.${pkgs.stdenv.hostPlatform.system})})
+              packages=(${lib.concatStringsSep " " (builtins.attrNames self.packages.${pkgs.stdenv.hostPlatform.system})})
+              rev=${lib.version}
 
-          for package in "''${packages[@]}"; do
-            echo "Building $package..."
-            nix build ".#$package" --out-link "result-$package"
-            echo "Built $package, eval took: $(cat result-$package/*/total-time) seconds"
-          done
-        ''}";
+              mkdir -p data
+              nonce=$(date +%s)
+              data_file="data/$nonce.json"
+              jq -n --arg rev "$rev" '{"rev":($rev), "specs":{},"times":{}}' > "$data_file"
+
+
+              cpu=$(awk -F: '/model name/ {print $2}' /proc/cpuinfo | head -1)
+              ram_amount=$(free -b | awk '/Mem:/ {printf "%.0f", $2/1000/1024/1024}')GB
+              ram_speed=$(udevadm info -e | awk '/MEMORY_DEVICE_/,/^$/ {if (/CONFIGURED_SPEED_MTS/) {split($0, a, "="); print a[2]}}' | head -1)
+              ram_type=$(udevadm info -e | awk '/MEMORY_DEVICE_/,/^$/ {if (/MEMORY_DEVICE_._TYPE/) {split($0, a, "="); print a[2]}}' | head -1)
+
+              jq \
+                --arg cpu "$cpu" \
+                --arg amount "$ram_amount" \
+                --arg speed "$ram_speed" \
+                --arg type "$ram_type" \
+                '.specs += {"cpu": $cpu, "ram": {"amount": $amount, "speed": $speed, "type": $type}}' \
+                "$data_file" > "$data_file.tmp"
+              mv "$data_file.tmp" "$data_file"
+
+              for package in "''${packages[@]}"; do
+                echo "Building $package..."
+                nix build ".#$package" --out-link "result-$package"
+
+                total_time=$(cat result-"$package"/*/total-time)
+                echo "Built $package, eval took: $total_time seconds"
+                jq --arg pkg "$package" --arg time "$total_time" \
+                  '.times += {($pkg): $time | tonumber}' "$data_file" > "$data_file.tmp"
+                mv "$data_file.tmp" "$data_file"
+              done
+            '';
+          };
+        in
+          pkgs.lib.getExe script;
       };
     });
   };
