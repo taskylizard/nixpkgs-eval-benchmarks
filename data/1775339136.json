@@ -1,0 +1,34 @@
+{
+  "rev": {
+    "nixpkgs": "26.05.20260401.6201e20",
+    "nix": "2.35.0pre20260404_553fb35",
+    "lix": "2.96.0-devpre20260328-dev_d0190cf"
+  },
+  "specs": {
+    "cpu": " AMD Ryzen 5 7600X 6-Core Processor",
+    "ram": {
+      "amount": "64GB",
+      "speed": "6000",
+      "type": "DDR5"
+    }
+  },
+  "times": {
+    "lix-293": 61.78,
+    "lix-294": 48.82,
+    "lix-295": 49.59,
+    "lix-git": 49.03,
+    "lix-latest": 49.59,
+    "lix-main": 50.58,
+    "lix-stable": 48.82,
+    "nix-228": 118.67,
+    "nix-230": 54.63,
+    "nix-231": 48.73,
+    "nix-232": 47.09,
+    "nix-233": 48.65,
+    "nix-234": 47.12,
+    "nix-git": 46.66,
+    "nix-latest": 47.12,
+    "nix-master": 44.47,
+    "nix-stable": 48.73
+  }
+}

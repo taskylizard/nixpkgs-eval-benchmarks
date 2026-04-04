@@ -1,12 +1,21 @@
 {
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
+    nix-src = {
+      url = "github:nixos/nix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
+    lix-src = {
+      url = "https://git.lix.systems/lix-project/lix/archive/main.tar.gz";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
   outputs = {
     self,
     nixpkgs,
     ...
-  }: let
+  } @ inputs: let
     inherit (nixpkgs) lib;
     inherit (lib.attrsets) genAttrs;
 
@@ -42,8 +51,14 @@
       lix-git = "git";
       lix-latest = "latest";
       lix-stable = "stable";
+      lix-295 = "lix_2_95";
       lix-294 = "lix_2_94";
       lix-293 = "lix_2_93";
+    };
+
+    inputMap = {
+      nix-master = "nix-src";
+      lix-main = "lix-src";
     };
   in {
     packages = forAllSystems (
@@ -73,6 +88,19 @@
           singleSystem {
             evalSystem = pkgs.stdenv.hostPlatform.system;
           };
+
+        mkPackageWithFlake = _: nixDrv: let
+          eval =
+            (pkgs.callPackage "${nixpkgs}/ci/eval/default.nix" {
+              nix = nixDrv;
+            }) {
+              chunkSize = 15000;
+            };
+          inherit (eval) singleSystem;
+        in
+          singleSystem {
+            evalSystem = pkgs.stdenv.hostPlatform.system;
+          };
       in
         (genAttrs (builtins.attrNames nixVersionMap) (
           name:
@@ -81,6 +109,10 @@
         // (genAttrs (builtins.attrNames lixVersionMap) (
           name:
             mkPackageWithLix name lixVersionMap.${name}
+        ))
+        // (genAttrs (builtins.attrNames inputMap) (
+          name:
+            mkPackageWithFlake name inputs.${inputMap.${name}}.packages.${pkgs.stdenv.hostPlatform.system}.default
         ))
     );
 
@@ -99,13 +131,21 @@
               set -euo pipefail
 
               packages=(${lib.concatStringsSep " " (builtins.attrNames self.packages.${pkgs.stdenv.hostPlatform.system})})
-              rev=${lib.version}
+              nprev=${lib.version}
+              nixrev=${inputs.nix-src.packages.${pkgs.stdenv.hostPlatform.system}.nix.version}
+              lixrev=${inputs.lix-src.packages.${pkgs.stdenv.hostPlatform.system}.nix.version}
 
               mkdir -p data
               nonce=$(date +%s)
               data_file="data/$nonce.json"
-              jq -n --arg rev "$rev" '{"rev":($rev), "specs":{},"times":{}}' > "$data_file"
-
+              jq -n '{"rev":{},"specs":{},"times":{}}' > "$data_file"
+              jq -n \
+                --arg nprev "$nprev" \
+                --arg nixrev "$nixrev" \
+                --arg lixrev "$lixrev" \
+                '.rev += {"nixpkgs": $nprev, "nix": $nixrev, "lix": $lixrev}' \
+                "$data_file" > "$data_file.tmp"
+              mv "$data_file.tmp" "$data_file"
 
               cpu=$(awk -F: '/model name/ {print $2}' /proc/cpuinfo | head -1)
               ram_amount=$(free -b | awk '/Mem:/ {printf "%.0f", $2/1000/1024/1024}')GB
@@ -123,7 +163,7 @@
 
               for package in "''${packages[@]}"; do
                 echo "Building $package..."
-                nix build ".#$package" --out-link "result-$package"
+                nix build ".#$package" -L --out-link "result-$package"
 
                 total_time=$(cat result-"$package"/*/total-time)
                 echo "Built $package, eval took: $total_time seconds"
