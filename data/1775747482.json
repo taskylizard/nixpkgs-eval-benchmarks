@@ -1,0 +1,34 @@
+{
+  "rev": {
+    "nixpkgs": "26.05.20260401.6201e20",
+    "nix": "2.35.0pre20260404_553fb35",
+    "lix": "2.96.0-devpre20260328-dev_d0190cf"
+  },
+  "specs": {
+    "cpu": " Intel(R) Xeon(R) CPU E3-1231 v3 @ 3.40GHz",
+    "ram": {
+      "amount": "32GB",
+      "speed": "1600",
+      "type": "DDR3"
+    }
+  },
+  "times": {
+    "lix-293": 1443.05,
+    "lix-294": 125.25,
+    "lix-295": 126.82,
+    "lix-git": 127.25,
+    "lix-latest": 126.82,
+    "lix-main": 132.08,
+    "lix-stable": 125.25,
+    "nix-228": 1726.61,
+    "nix-230": 130.53,
+    "nix-231": 122.62,
+    "nix-232": 123.14,
+    "nix-233": 130.77,
+    "nix-234": 123.20,
+    "nix-git": 121.62,
+    "nix-latest": 123.20,
+    "nix-master": 117.57,
+    "nix-stable": 122.62
+  }
+}
